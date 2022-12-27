@@ -26,7 +26,6 @@ use std::convert::TryFrom;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::{self, Error};
-use std::ops::Deref;
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -194,16 +193,8 @@ impl BlobInfo {
         self.blob_index
     }
 
-    /// Get the id of the blob, with special handling of `inlined-meta` case.
+    /// Get the id of the blob.
     pub fn blob_id(&self) -> String {
-        if self.has_feature(BlobFeatures::INLINED_META) && !self.has_feature(BlobFeatures::ZRAN)
-            || !self.meta_ci_is_valid()
-        {
-            let guard = self.meta_path.lock().unwrap();
-            if !guard.is_empty() {
-                return guard.deref().clone();
-            }
-        }
         self.blob_id.clone()
     }
 
@@ -450,17 +441,7 @@ impl BlobInfo {
 
     /// Get RAFS blob id for ZRan.
     pub fn get_rafs_blob_id(&self) -> Result<String, Error> {
-        assert!(self.has_feature(BlobFeatures::ZRAN));
-        let id = if self.has_feature(BlobFeatures::INLINED_META) {
-            let guard = self.meta_path.lock().unwrap();
-            if guard.is_empty() {
-                return Err(einval!("failed to get blob id from meta file name"));
-            }
-            guard.deref().clone()
-        } else {
-            hex::encode(&self.rafs_blob_digest)
-        };
-        Ok(id)
+        Ok(hex::encode(&self.rafs_blob_digest))
     }
 }
 
@@ -974,6 +955,10 @@ impl BlobDevice {
             blobs: Arc::new(ArcSwap::new(Arc::new(blobs))),
             blob_count: blob_infos.len(),
         })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.blob_count == 0
     }
 
     /// Update configuration and storage backends of the blob device.
