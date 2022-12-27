@@ -472,8 +472,14 @@ impl BlobContext {
         let mut blob_id = blob.raw_blob_id().to_string();
         let mut features = blob.features();
 
+        let mut has_toc = false;
+        if let Ok(rafs_config) = ctx.configuration.get_rafs_config() {
+            has_toc = rafs_config.has_toc;
+        }
+
         // Fixes up blob info objects from inlined-meta blobs.
-        if features.contains(BlobFeatures::INLINED_META)
+        if has_toc
+            && features.contains(BlobFeatures::INLINED_META)
             && (chunk_source == ChunkSource::Dict || chunk_source == ChunkSource::Parent)
         {
             let backend_config = ctx
